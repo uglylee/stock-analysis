@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+    <a href="/" style="color: var(--text-muted); text-decoration: none; font-size: 14px;">← 返回</a>
+    <h1 style="font-size: 24px;">{{ code }} {{ name }}</h1>
+    <span class="badge badge-red">{{ surge_count }} 次暴涨</span>
+</div>
+
+{% if surge_count == 0 %}
+<div class="empty-state">
+    <div class="icon">&#x1F50D;</div>
+    <p>该股票近2年内未发现月度涨幅超过100%的暴涨</p>
+</div>
+{% else %}
+
+<!-- Price Charts -->
+{% for key, chart_html in charts.items() %}
+<div class="chart-container">
+    {{ chart_html | safe }}
+</div>
+{% endfor %}
+
+<!-- Feature Analysis for Each Surge -->
+<div class="section-title">暴涨前的技术特征</div>
+
+{% for sf in surge_features %}
+<div class="chart-container">
+    <h3 style="margin-bottom: 12px;">
+        暴涨#{{ loop.index }}:
+        <span class="gain-positive">{{ sf.gain_pct }}%</span>
+        <span style="font-size: 12px; color: var(--text-muted);">(开始: {{ sf.start }})</span>
+    </h3>
+
+    <div class="stock-features">
+        {% for label, value in sf.features.items() %}
+        <div class="stock-feature">
+            <span class="sf-label">{{ label }}</span>
+            <span class="sf-value">{{ value }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+<div class="highlight-box">
+    <h3>分析说明</h3>
+    <p>
+        图表中<span style="color: #3b82f6;">蓝色高亮区域</span>为暴涨前60个交易日的特征窗口，
+        <span style="color: #ef4444;">红色高亮区域</span>为暴涨区间（20个交易日内涨幅超100%）。
+        通过分析暴涨前的技术指标特征（均线位置、MACD、RSI、成交量、布林带等），
+        可以归纳出暴涨前的共同技术模式，并用于筛选当前市场中具有类似特征的潜在标的。
+    </p>
+</div>
+
+{% endif %}
+
+{% endblock %}

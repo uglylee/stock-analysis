@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1 style="font-size: 24px; margin-bottom: 8px;">暴涨前共同技术特征分析</h1>
+<p class="text-muted">基于 {{ surge_count }} 次历史暴涨事件提取的共同技术特征</p>
+
+{% if not charts %}
+<div class="empty-state">
+    <div class="icon">&#x1F4CA;</div>
+    <p>暂无特征数据</p>
+    <p class="text-muted">请先运行数据分析程序</p>
+</div>
+{% else %}
+
+<!-- Radar Chart -->
+{% if charts.radar %}
+<div class="chart-container">
+    <div class="chart-title">暴涨前技术特征雷达图</div>
+    {{ charts.radar | safe }}
+</div>
+{% endif %}
+
+<!-- Distribution Charts -->
+{% if charts.distributions %}
+<div class="chart-container">
+    <div class="chart-title">各技术特征分布 (箱线图)</div>
+    {{ charts.distributions | safe }}
+</div>
+{% endif %}
+
+<!-- Feature Statistics Table -->
+{% if feature_table %}
+<div class="section-title">技术特征统计表</div>
+
+<div class="highlight-box">
+    <h3>关键发现：暴涨前的共同技术特征</h3>
+    <p>
+        通过对所有历史暴涨事件的统计分析，暴涨前股票通常呈现以下共同技术特征模式。
+        这些特征可作为筛选潜在暴涨标的的参考依据。
+    </p>
+</div>
+
+<div class="chart-container">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>特征指标</th>
+                <th>均值</th>
+                <th>中位数</th>
+                <th>标准差</th>
+                <th>Q25</th>
+                <th>Q75</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ft in feature_table %}
+            <tr>
+                <td style="font-weight: 500;">{{ ft.name }}</td>
+                <td>{{ ft.mean }}</td>
+                <td>{{ ft.median }}</td>
+                <td>{{ ft.std }}</td>
+                <td>{{ ft.q25 }}</td>
+                <td>{{ ft.q75 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Interpretation -->
+<div class="section-title">技术特征解读</div>
+
+<div class="feature-grid">
+    <div class="feature-item">
+        <div class="fi-name">RSI 相对强弱指标</div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px; line-height: 1.5;">
+            暴涨前RSI通常在40-60区间，既不过热也不过冷，市场情绪处于中性偏弱状态，
+            为后续快速拉升留出空间。
+        </p>
+    </div>
+
+    <div class="feature-item">
+        <div class="fi-name">均线位置关系</div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px; line-height: 1.5;">
+            暴涨前股价通常在MA20和MA60附近或略下方，短期均线开始走平或粘合，
+            形成"均线束"形态，表明筹码高度集中。
+        </p>
+    </div>
+
+    <div class="feature-item">
+        <div class="fi-name">成交量特征</div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px; line-height: 1.5;">
+            暴涨前成交量显著萎缩，5日均量远低于20日均量（量比<1），
+            呈现"地量"特征。随后放量突破是确认信号。
+        </p>
+    </div>
+
+    <div class="feature-item">
+        <div class="fi-name">布林带位置</div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px; line-height: 1.5;">
+            暴涨前股价通常位于布林带中轨或下轨附近，带宽收窄，
+            表明波动率降低，处于蓄力阶段。
+        </p>
+    </div>
+
+    <div class="feature-item">
+        <div class="fi-name">MACD指标</div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px; line-height: 1.5;">
+            暴涨前MACD通常处于零轴附近，DIF与DEA粘合或刚刚形成金叉，
+            多头动能开始积聚但尚未充分释放。
+        </p>
+    </div>
+
+    <div class="feature-item">
+        <div class="fi-name">波动率与振幅</div>
+        <p style="font-size: 13px; color: var(--text-muted); margin-top: 8px; line-height: 1.5;">
+            暴涨前20日波动率和日均振幅处于较低水平，市场交投清淡。
+            低波动率后的突破往往伴随剧烈行情。
+        </p>
+    </div>
+</div>
+
+<!-- Interpretation summary -->
+<div class="highlight-box">
+    <h3>共同技术特征总结</h3>
+    <p>
+        <strong>1. 均线粘合：</strong>短期均线(MA5/10/20)与中期均线(MA60)高度粘合，股价在均线束附近窄幅震荡，筹码高度集中。<br><br>
+        <strong>2. 地量成交：</strong>成交量显著萎缩至近期地量水平，5日均量低于20日均量，表明抛压枯竭。<br><br>
+        <strong>3. 中性RSI：</strong>RSI(14)在40-55区间，不超买不超卖，处于可攻可守的中性位置。<br><br>
+        <strong>4. 布林收窄：</strong>布林带宽度收窄，价格位于中轨附近，波动率降至低点，蓄势待发。<br><br>
+        <strong>5. MACD零轴附近：</strong>MACD指标处于零轴附近，DIF/DEA接近金叉或刚刚金叉，多头动能初现。<br><br>
+        <strong>6. 低波动低振幅：</strong>20日波动率与日均振幅处于相对低位，市场关注度低，为暴力拉升创造条件。
+    </p>
+</div>
+
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block content %}
+
+<h1 style="font-size: 24px; margin-bottom: 20px;">A股近2年月度涨幅超100% 股票分析</h1>
+
+<!-- Summary -->
+<div class="summary-grid">
+    <div class="summary-card">
+        <div class="value red">{{ summary.total_surges }}</div>
+        <div class="label">暴涨事件总数</div>
+    </div>
+    <div class="summary-card">
+        <div class="value blue">{{ summary.unique_stocks }}</div>
+        <div class="label">涉及股票数</div>
+    </div>
+    <div class="summary-card">
+        <div class="value red">{{ summary.avg_gain }}%</div>
+        <div class="label">平均涨幅</div>
+    </div>
+    <div class="summary-card">
+        <div class="value orange">{{ summary.max_gain }}%</div>
+        <div class="label">最大涨幅</div>
+    </div>
+    <div class="summary-card">
+        <div class="value blue">{{ summary.predictions_available }}</div>
+        <div class="label">当前预测股票数</div>
+    </div>
+    <div class="summary-card">
+        <div class="value red">{{ summary.high_score_preds }}</div>
+        <div class="label">高匹配度预测</div>
+    </div>
+</div>
+
+{% if summary.total_surges == 0 %}
+<div class="empty-state">
+    <div class="icon">&#x1F4CA;</div>
+    <p>暂无分析数据</p>
+    <p class="text-muted">请先运行数据采集和分析程序</p>
+    <p class="text-muted mt-4">
+        <code>python data_collector.py</code> 采集数据<br>
+        <code>python analyzer.py</code> 分析暴涨股票<br>
+        <code>python predictor.py</code> 生成预测结果
+    </p>
+</div>
+{% else %}
+
+<!-- Distribution Charts -->
+{% if charts.distribution %}
+<div class="chart-container">
+    <div class="chart-title">暴涨股票分布分析</div>
+    {{ charts.distribution | safe }}
+</div>
+{% endif %}
+
+<!-- Top Gainers Chart -->
+{% if charts.top_gainers %}
+<div class="chart-container">
+    <div class="chart-title">涨幅排名 Top 20</div>
+    {{ charts.top_gainers | safe }}
+</div>
+{% endif %}
+
+<!-- Recent Surge Events Table -->
+{% if recent_surges %}
+<div class="chart-container">
+    <div class="chart-title">涨幅最大的20次暴涨事件</div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>代码</th>
+                <th>名称</th>
+                <th>涨幅</th>
+                <th>开始日期</th>
+                <th>结束日期</th>
+                <th>查看</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for s in recent_surges %}
+            <tr>
+                <td>{{ s.code }}</td>
+                <td>{{ s.name }}</td>
+                <td class="gain-positive">{{ s.gain_pct }}%</td>
+                <td>{{ s.surge_start }}</td>
+                <td>{{ s.surge_end }}</td>
+                <td><a href="/stock/{{ s.code }}" class="tag tag-blue">分析</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Prediction Overview -->
+{% if predictions %}
+<div class="section-title">当前市场预测概览</div>
+
+{% if charts.prediction_scores %}
+<div class="chart-container">
+    <div class="chart-title">暴涨潜力评分 Top 30</div>
+    {{ charts.prediction_scores | safe }}
+</div>
+{% endif %}
+
+<div class="chart-container">
+    <div class="chart-title">预测股票 Top 20</div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>排名</th>
+                <th>代码</th>
+                <th>名称</th>
+                <th>匹配度评分</th>
+                <th>最新收盘价</th>
+                <th>评分等级</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in predictions %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>{{ p.code }}</td>
+                <td>{{ p.name }}</td>
+                <td>
+                    {% if p.score > 70 %}
+                    <span class="score-high">{{ p.score }}</span>
+                    {% elif p.score > 50 %}
+                    <span class="score-medium">{{ p.score }}</span>
+                    {% else %}
+                    <span class="score-low">{{ p.score }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ p.last_close }}</td>
+                <td>
+                    {% if p.score > 70 %}
+                    <span class="badge badge-red">高匹配</span>
+                    {% elif p.score > 50 %}
+                    <span class="badge badge-orange">中匹配</span>
+                    {% else %}
+                    <span class="badge badge-blue">低匹配</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% endif %}
+
+{% endblock %}

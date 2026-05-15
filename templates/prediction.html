@@ -1,0 +1,551 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    /* K-line popup */
+    #kline-popup {
+        display: none;
+        position: fixed;
+        z-index: 9999;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+        padding: 12px;
+        width: 520px;
+        height: 380px;
+    }
+    #kline-popup .popup-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+    }
+    #kline-popup .popup-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text);
+    }
+    #kline-popup .popup-code {
+        font-size: 11px;
+        color: var(--text-muted);
+    }
+    #kline-popup .popup-chart {
+        width: 100%;
+        height: calc(100% - 24px);
+    }
+    #kline-popup .popup-loading {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--text-muted);
+        font-size: 14px;
+    }
+    .stock-name-cell {
+        cursor: pointer;
+        position: relative;
+    }
+    .stock-name-cell:hover {
+        color: var(--red);
+    }
+</style>
+
+<!-- K-line popup -->
+<div id="kline-popup">
+    <div class="popup-header">
+        <span class="popup-title" id="popup-title"></span>
+        <span class="popup-code" id="popup-code"></span>
+    </div>
+    <div class="popup-chart" id="popup-chart">
+        <div class="popup-loading">加载中...</div>
+    </div>
+</div>
+
+<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; flex-wrap: wrap; gap: 12px;">
+    <div>
+        <h1 style="font-size: 24px; margin-bottom: 4px;">暴涨潜力股票预测</h1>
+        <p class="text-muted">基于历史暴涨前技术特征匹配，筛选当前市场潜在标的</p>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+        {% if predictions %}
+        <span class="text-muted" style="font-size: 12px;" id="last-update">
+            预测日期: {{ predictions[0].last_date if predictions[0].last_date else 'N/A' }}
+        </span>
+        {% endif %}
+        <button id="btn-predict" onclick="startPrediction()"
+                style="padding: 10px 24px; background: linear-gradient(135deg, #ef4444, #f97316);
+                       color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600;
+                       cursor: pointer; transition: opacity 0.2s;"
+                onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">
+            &#x1F4CA; 运行预测
+        </button>
+    </div>
+</div>
+
+<!-- Progress Overlay -->
+<div id="progress-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(15, 23, 42, 0.85); z-index: 1000; backdrop-filter: blur(4px);">
+    <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+                background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
+                padding: 40px; text-align: center; min-width: 420px; max-width: 90vw;">
+        <div style="font-size: 48px; margin-bottom: 16px;" id="progress-icon">&#x1F4CA;</div>
+        <h3 style="margin-bottom: 12px; color: var(--text);" id="progress-title">正在运行预测...</h3>
+        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 20px;" id="progress-message">
+            正在初始化...
+        </p>
+
+        <!-- Progress bar -->
+        <div style="background: var(--border); border-radius: 8px; height: 8px; overflow: hidden; margin-bottom: 8px;">
+            <div id="progress-bar" style="background: linear-gradient(90deg, #ef4444, #f97316);
+                        height: 100%; width: 0%; border-radius: 8px; transition: width 0.3s;"></div>
+        </div>
+        <p style="color: var(--text-muted); font-size: 12px;" id="progress-pct">0%</p>
+
+        <p id="progress-hint" style="color: var(--text-muted); font-size: 12px; margin-top: 16px;">
+            预测过程包括更新数据、提取特征、相似度匹配，请耐心等待...
+        </p>
+    </div>
+</div>
+
+{% if not charts and not predictions %}
+<div class="empty-state">
+    <div class="icon">&#x1F50D;</div>
+    <p>暂无预测结果</p>
+    <p class="text-muted">点击上方 <strong>"运行预测"</strong> 按钮，系统将基于当前市场数据筛选潜在标的</p>
+    <button onclick="startPrediction()"
+            style="margin-top: 16px; padding: 10px 24px; background: linear-gradient(135deg, #ef4444, #f97316);
+                   color: white; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer;">
+        &#x1F4CA; 立即运行预测
+    </button>
+</div>
+{% else %}
+
+<!-- Prediction Summary -->
+<div class="summary-grid">
+    <div class="summary-card">
+        <div class="value blue">{{ summary.total }}</div>
+        <div class="label">筛选股票总数</div>
+    </div>
+    <div class="summary-card">
+        <div class="value red">{{ summary.high }}</div>
+        <div class="label">高匹配度 (≥70分)</div>
+    </div>
+    <div class="summary-card">
+        <div class="value orange">{{ summary.medium }}</div>
+        <div class="label">中匹配度 (50-70分)</div>
+    </div>
+    <div class="summary-card">
+        <div class="value" style="color: var(--yellow);">{{ summary.low }}</div>
+        <div class="label">低匹配度 (<50分)</div>
+    </div>
+</div>
+
+<!-- Methodology -->
+<div class="highlight-box">
+    <h3>预测方法说明</h3>
+    <p>
+        预测系统基于<strong>特征相似度匹配</strong>：提取当前所有A股近60个交易日的技术指标，
+        与历史上暴涨股票在暴涨前的技术特征进行对比。使用加权高斯相似度模型，
+        计算每只股票与"暴涨前特征画像"的匹配程度（0-100分）。<br><br>
+        <strong>评分越高</strong>，表示该股票当前的技术形态与历史上暴涨前的形态越相似。
+        ⚠️ 此预测仅供参考，不构成投资建议。历史规律不代表未来表现。
+    </p>
+</div>
+
+<!-- Full Prediction Table -->
+{% if predictions %}
+<div class="section-title">完整预测结果</div>
+<div class="chart-container" style="max-height: 600px; overflow-y: auto;" id="pred-table">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>排名</th>
+                <th>代码</th>
+                <th>名称</th>
+                <th>评分</th>
+                <th>最新价</th>
+                <th>RSI(14)</th>
+                <th>距MA20(%)</th>
+                <th>量比(5/20)</th>
+                <th>波动率(20D)</th>
+                <th>布林位置</th>
+                <th>60日最大回撤(%)</th>
+                <th>等级</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for p in predictions %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td><a href="/stock/{{ p.code }}" style="color: var(--blue); text-decoration: none;">
+                    {{ p.code }}</a></td>
+                <td><span class="stock-name-cell" data-code="{{ p.code }}">{{ p.name }}</span></td>
+                <td>
+                    {% if p.score > 70 %}
+                    <span class="score-high">{{ p.score }}</span>
+                    {% elif p.score > 50 %}
+                    <span class="score-medium">{{ p.score }}</span>
+                    {% else %}
+                    <span class="score-low">{{ p.score }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ p.last_close }}</td>
+                <td>{{ p.rsi_14 }}</td>
+                <td>{{ p.pct_from_ma20 }}</td>
+                <td>{{ p.vol_ratio_5_20 }}</td>
+                <td>{{ p.volatility_20d }}</td>
+                <td>{{ p.bb_position }}</td>
+                <td>{{ p.max_drawdown_60d }}</td>
+                <td>
+                    {% if p.score > 70 %}
+                    <span class="badge badge-red">高匹配</span>
+                    {% elif p.score > 50 %}
+                    <span class="badge badge-orange">中匹配</span>
+                    {% else %}
+                    <span class="badge badge-blue">低匹配</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<!-- Prediction Scores Chart -->
+{% if charts.scores %}
+<div class="chart-container" id="chart-scores">
+    <div class="chart-title">暴涨潜力评分 Top 30</div>
+    {{ charts.scores | safe }}
+</div>
+{% endif %}
+
+<!-- Feature Comparison Chart -->
+{% if charts.compare %}
+<div class="chart-container" id="chart-compare">
+    <div class="chart-title">Top 预测股票 vs 历史暴涨特征对比</div>
+    <div class="text-muted" style="margin-bottom: 12px;">
+        红线 = 当前股票特征 | 蓝虚线 = 历史暴涨前均值 | 蓝色阴影 = 历史IQR区间
+    </div>
+    {{ charts.compare | safe }}
+</div>
+{% endif %}
+
+<!-- Risk Disclaimer -->
+<div class="highlight-box" style="background: rgba(239,68,68,0.05); border-color: rgba(239,68,68,0.1);">
+    <h3 style="color: var(--text-muted);">⚠️ 风险提示</h3>
+    <p style="line-height: 1.8;">
+        1. 本系统基于历史数据的技术面统计分析，历史规律不代表未来表现。<br>
+        2. 暴涨股票的成因复杂，可能涉及政策、消息面、资金面等多种因素，单纯技术面匹配无法覆盖所有变量。<br>
+        3. 匹配度高不代表股票一定会暴涨，仅为统计意义上的相似度参考。<br>
+        4. 股市有风险，投资需谨慎。本系统分析结果仅供研究参考，不构成任何投资建议。<br>
+        5. 建议结合基本面分析、市场环境判断等多维度信息进行综合决策。
+    </p>
+</div>
+
+{% endif %}
+
+<script>
+var pollTimer = null;
+
+function startPrediction() {
+    // Disable button
+    var btn = document.getElementById('btn-predict');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ 启动中...';
+    }
+
+    // Show overlay
+    document.getElementById('progress-overlay').style.display = 'block';
+    document.getElementById('progress-title').textContent = '正在运行预测...';
+    document.getElementById('progress-message').textContent = '正在启动预测引擎...';
+    document.getElementById('progress-pct').textContent = '0%';
+    document.getElementById('progress-bar').style.width = '0%';
+    document.getElementById('progress-icon').textContent = '📊';
+
+    // Start prediction
+    fetch('/api/run-prediction', { method: 'POST' })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'already_running') {
+                document.getElementById('progress-message').textContent = data.message;
+            }
+            // Start polling
+            pollTimer = setInterval(checkProgress, 800);
+        })
+        .catch(function(err) {
+            document.getElementById('progress-message').textContent = '启动失败: ' + err;
+            document.getElementById('progress-icon').textContent = '❌';
+            if (btn) {
+                btn.disabled = false;
+                btn.textContent = '📊 运行预测';
+            }
+        });
+}
+
+function checkProgress() {
+    fetch('/api/prediction-status')
+        .then(function(r) { return r.json(); })
+        .then(function(state) {
+            // Update progress bar
+            var pct = state.total > 0 ? Math.round(state.progress / state.total * 100) : 0;
+            document.getElementById('progress-bar').style.width = pct + '%';
+            document.getElementById('progress-pct').textContent = pct + '%';
+            document.getElementById('progress-message').textContent = state.message || '运行中...';
+
+            var icons = ['📊', '📈', '🔍', '⚙️', '🔄'];
+            var iconIdx = Math.floor(Date.now() / 800) % icons.length;
+            document.getElementById('progress-icon').textContent = icons[iconIdx];
+
+            if (state.error) {
+                // Error
+                clearInterval(pollTimer);
+                document.getElementById('progress-icon').textContent = '❌';
+                document.getElementById('progress-title').textContent = '预测出错';
+                document.getElementById('progress-message').textContent = state.error;
+                document.getElementById('progress-hint').textContent = '请检查数据是否完整，然后重试';
+                var btn = document.getElementById('btn-predict');
+                if (btn) {
+                    btn.disabled = false;
+                    btn.textContent = '📊 重试预测';
+                }
+                // Auto-hide after 8 seconds
+                setTimeout(function() {
+                    document.getElementById('progress-overlay').style.display = 'none';
+                }, 8000);
+            } else if (!state.running && state.finished_at) {
+                // Complete
+                clearInterval(pollTimer);
+                document.getElementById('progress-icon').textContent = '✅';
+                document.getElementById('progress-title').textContent = '预测完成!';
+                document.getElementById('progress-bar').style.width = '100%';
+                document.getElementById('progress-pct').textContent = '100%';
+                document.getElementById('progress-hint').textContent = '页面即将刷新...';
+
+                // Reload page after short delay
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1200);
+            }
+        })
+        .catch(function(err) {
+            console.error('Poll error:', err);
+        });
+}
+
+// Clean up timer on page unload
+window.addEventListener('beforeunload', function() {
+    if (pollTimer) clearInterval(pollTimer);
+});
+</script>
+
+<script>
+(function() {
+    var popup = document.getElementById('kline-popup');
+    var popupTitle = document.getElementById('popup-title');
+    var popupCode = document.getElementById('popup-code');
+    var popupChart = document.getElementById('popup-chart');
+    var cache = {};
+    var activeCode = null;
+    var hideTimer = null;
+
+    function computeMA(data, period) {
+        var result = new Array(data.length).fill(null);
+        for (var i = period - 1; i < data.length; i++) {
+            var sum = 0;
+            for (var j = i - period + 1; j <= i; j++) sum += data[j];
+            result[i] = sum / period;
+        }
+        return result;
+    }
+
+    function renderChart(code, name, rawData) {
+        var dates = rawData.map(function(d) { return d.date; });
+        var opens = rawData.map(function(d) { return d.open; });
+        var highs = rawData.map(function(d) { return d.high; });
+        var lows = rawData.map(function(d) { return d.low; });
+        var closes = rawData.map(function(d) { return d.close; });
+        var volumes = rawData.map(function(d) { return d.volume; });
+
+        var ma5 = computeMA(closes, 5);
+        var ma10 = computeMA(closes, 10);
+        var ma20 = computeMA(closes, 20);
+
+        var candlestick = {
+            type: 'candlestick',
+            x: dates,
+            open: opens,
+            high: highs,
+            low: lows,
+            close: closes,
+            increasing: { line: { color: '#ef4444' }, fillcolor: '#ef4444' },
+            decreasing: { line: { color: '#22c55e' }, fillcolor: '#22c55e' },
+            name: 'K线',
+            showlegend: false,
+            hoverinfo: 'text',
+            hovertext: dates.map(function(d, i) {
+                return '日期: ' + d + '<br>开: ' + opens[i].toFixed(2) +
+                       '<br>高: ' + highs[i].toFixed(2) +
+                       '<br>低: ' + lows[i].toFixed(2) +
+                       '<br>收: ' + closes[i].toFixed(2);
+            })
+        };
+
+        var traceMA5 = {
+            type: 'scatter', x: dates, y: ma5, mode: 'lines',
+            name: 'MA5', line: { color: '#fbbf24', width: 1 },
+            showlegend: false, hoverinfo: 'skip'
+        };
+        var traceMA10 = {
+            type: 'scatter', x: dates, y: ma10, mode: 'lines',
+            name: 'MA10', line: { color: '#f97316', width: 1 },
+            showlegend: false, hoverinfo: 'skip'
+        };
+        var traceMA20 = {
+            type: 'scatter', x: dates, y: ma20, mode: 'lines',
+            name: 'MA20', line: { color: '#a855f7', width: 1 },
+            showlegend: false, hoverinfo: 'skip'
+        };
+
+        var traceVolume = {
+            type: 'bar', x: dates, y: volumes,
+            name: '成交量',
+            marker: {
+                color: closes.map(function(c, i) {
+                    return c >= opens[i] ? 'rgba(239,68,68,0.4)' : 'rgba(34,197,94,0.4)';
+                })
+            },
+            yaxis: 'y2',
+            showlegend: false,
+            hoverinfo: 'skip'
+        };
+
+        var layout = {
+            template: 'plotly_dark',
+            paper_bgcolor: '#1e293b',
+            plot_bgcolor: '#1e293b',
+            margin: { t: 5, r: 10, b: 5, l: 10 },
+            height: 340,
+            xaxis: {
+                rangeslider: { visible: false },
+                showgrid: false,
+                color: '#94a3b8',
+                tickfont: { size: 9 },
+                nticks: 8
+            },
+            yaxis: {
+                title: '',
+                showgrid: true,
+                gridcolor: 'rgba(51,65,85,0.3)',
+                color: '#94a3b8',
+                tickfont: { size: 9 },
+                side: 'right',
+                tickformat: '.2f'
+            },
+            yaxis2: {
+                overlaying: 'y',
+                side: 'left',
+                showgrid: false,
+                showticklabels: false,
+                range: [0, Math.max.apply(null, volumes) * 4]
+            },
+            showlegend: false,
+            hovermode: 'x unified'
+        };
+
+        Plotly.newPlot(popupChart, [candlestick, traceVolume, traceMA5, traceMA10, traceMA20], layout, {
+            displayModeBar: false,
+            responsive: true
+        });
+    }
+
+    function showPopup(e, code, name) {
+        if (activeCode === code) {
+            positionPopup(e);
+            return;
+        }
+        activeCode = code;
+        popupTitle.textContent = name;
+        popupCode.textContent = code;
+        popupChart.innerHTML = '<div class="popup-loading">加载中...</div>';
+        popup.style.display = 'block';
+        positionPopup(e);
+
+        if (cache[code]) {
+            renderChart(code, name, cache[code]);
+        } else {
+            fetch('/api/stock/' + code + '/kline')
+                .then(function(r) { return r.json(); })
+                .then(function(resp) {
+                    if (resp.data && resp.data.length > 0) {
+                        cache[code] = resp.data;
+                        if (activeCode === code) {
+                            renderChart(code, name, resp.data);
+                        }
+                    } else {
+                        popupChart.innerHTML = '<div class="popup-loading">无数据</div>';
+                    }
+                })
+                .catch(function() {
+                    if (activeCode === code) {
+                        popupChart.innerHTML = '<div class="popup-loading">加载失败</div>';
+                    }
+                });
+        }
+    }
+
+    function hidePopup() {
+        popup.style.display = 'none';
+        activeCode = null;
+    }
+
+    function positionPopup(e) {
+        var left = e.clientX + 18;
+        var top = e.clientY - 190;
+        if (left + 530 > window.innerWidth) left = e.clientX - 540;
+        if (top < 10) top = 10;
+        if (top + 390 > window.innerHeight) top = window.innerHeight - 400;
+        popup.style.left = left + 'px';
+        popup.style.top = top + 'px';
+    }
+
+    // Event delegation on prediction table
+    var table = document.getElementById('pred-table');
+    if (table) {
+        table.addEventListener('mouseover', function(e) {
+            var target = e.target;
+            if (target.classList.contains('stock-name-cell')) {
+                if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+                showPopup(e, target.getAttribute('data-code'), target.textContent);
+            }
+        });
+
+        table.addEventListener('mousemove', function(e) {
+            if (activeCode && e.target.classList.contains('stock-name-cell')) {
+                positionPopup(e);
+            }
+        });
+
+        table.addEventListener('mouseout', function(e) {
+            var target = e.target;
+            if (target.classList.contains('stock-name-cell')) {
+                hideTimer = setTimeout(function() {
+                    hidePopup();
+                }, 150);
+            }
+        });
+
+        popup.addEventListener('mouseover', function() {
+            if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        });
+
+        popup.addEventListener('mouseout', function() {
+            hidePopup();
+        });
+    }
+})();
+</script>
+
+{% endblock %}
