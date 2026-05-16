@@ -309,7 +309,7 @@ def plot_feature_radar(feature_stats: dict) -> str:
 
     # Select key normalized features
     key_features = {
-        "price_change_60d": "60日涨跌幅",
+        "price_change_60d": "180日涨跌幅",
         "pct_from_ma20": "距MA20距离",
         "pct_from_ma60": "距MA60距离",
         "volatility_20d": "20日波动率",
@@ -318,7 +318,7 @@ def plot_feature_radar(feature_stats: dict) -> str:
         "kdj_k": "KDJ-K",
         "bb_position": "布林带位置",
         "vol_ratio_5_20": "量比(5/20)",
-        "max_drawdown_60d": "60日最大回撤",
+        "max_drawdown_60d": "180日最大回撤",
         "price_position": "价格位置",
         "macd_golden_cross": "MACD金叉",
     }
@@ -393,11 +393,11 @@ def plot_feature_distributions(feature_stats: dict) -> str:
         "avg_amplitude_20d": "20日均振幅",
         "bb_position": "布林带位置",
         "price_position": "价格位置",
-        "max_drawdown_60d": "60日最大回撤",
+        "max_drawdown_60d": "180日最大回撤",
         "macd_golden_cross": "MACD金叉",
         "recent_20d_return": "近20日收益",
         "consecutive_positive": "连续阳线",
-        "price_change_60d": "60日收益",
+        "price_change_60d": "180日收益",
     }
 
     fig = make_subplots(
@@ -662,7 +662,7 @@ def stock_detail(code):
         "pct_from_ma20": "距MA20(%)", "pct_from_ma60": "距MA60(%)",
         "vol_ratio_5_20": "量比(5/20)", "volatility_20d": "20日波动率",
         "bb_position": "布林带位置", "price_position": "价格位置",
-        "max_drawdown_60d": "60日最大回撤", "avg_amplitude_20d": "20日均振幅",
+        "max_drawdown_60d": "180日最大回撤", "avg_amplitude_20d": "20日均振幅",
         "macd_golden_cross": "MACD金叉", "recent_20d_return": "近20日收益",
     }
 
@@ -706,9 +706,9 @@ def common_features():
         "pct_from_ma20": "距MA20距离", "pct_from_ma60": "距MA60距离",
         "volatility_20d": "20日波动率", "avg_amplitude_20d": "20日均振幅",
         "vol_ratio_5_20": "量比(5/20)", "bb_position": "布林带位置",
-        "price_position": "价格位置", "max_drawdown_60d": "60日最大回撤",
+        "price_position": "价格位置", "max_drawdown_60d": "180日最大回撤",
         "macd_golden_cross": "MACD金叉概率", "kdj_k": "KDJ-K",
-        "recent_20d_return": "近20日收益", "price_change_60d": "60日收益",
+        "recent_20d_return": "近20日收益", "price_change_60d": "180日收益",
         "consecutive_positive": "连续阳线天数",
     }
 

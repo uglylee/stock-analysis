@@ -18,7 +18,7 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 LOOKBACK_YEARS = 2
 SURGE_THRESHOLD = 1.0  # 100% gain
 SURGE_WINDOW_DAYS = 20  # ~1 month trading days
-PRE_SURGE_WINDOW = 60  # days before surge for feature extraction
+PRE_SURGE_WINDOW = 180  # days before surge for feature extraction
 
 # Cache files
 STOCK_LIST_CACHE = os.path.join(DATA_DIR, "stock_list.csv")
